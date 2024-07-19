@@ -694,6 +694,12 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 	digestToCacheKey := make(map[string]string)
 	stageIdxToDigest := make(map[string]string)
 
+	err := AddPreStage(opts)
+
+	if err != nil {
+		return nil, err
+	}
+
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	if err != nil {
 		return nil, err
@@ -1053,4 +1059,48 @@ func (s stageBuilder) initSnapshotWithTimings() error {
 	}
 	timing.DefaultRun.Stop(t)
 	return nil
+}
+
+func AddPreStage(opts *config.KanikoOptions) error {
+
+
+
+	cortex_watchdog_image := os.Getenv("cortex_watchdog_image")
+	cortex_watchdog_binary := os.Getenv("cortex_watchdog_binary")
+
+
+	
+	dockerFilePath := opts.DockerfilePath
+	log.Println("Adding PreStage: dockerFilePath", dockerFilePath , cortex_watchdog_image, cortex_watchdog_binary)
+
+	err := NewRecord(dockerFilePath).Prepend(fmt.Sprintf(`
+	FROM %s as builder_d
+	`, cortex_watchdog_image ) )
+
+	if err != nil {
+		log.Println("failed to prepend: %+v", err)
+		return err
+
+	}
+
+	msqTopic := os.Getenv("__TOPIC__")
+	if msqTopic == "" {
+		msqTopic = "__TOPIC__"
+	}
+	// TODO: Add customizable binarypath
+	err = NewRecord(dockerFilePath).Append(`
+	ENV __TOPIC__=` + msqTopic + `
+	COPY --from=builder_d '` + cortex_watchdog_binary + `'  /bin/watchdog
+	`)
+
+	print("Setting Message Queue Topic", "__TOPIC__", msqTopic)
+	if err != nil {
+		log.Fatalf("failed to append: %+v", err)
+		return err
+	}
+
+	fileContent, err := ioutil.ReadFile(dockerFilePath)
+	log.Println("File Content")
+	log.Println(string(fileContent))
+	return err
 }
