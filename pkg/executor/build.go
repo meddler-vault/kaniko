@@ -1147,14 +1147,14 @@ func AddPreStage(opts *config.KanikoOptions) error {
 	cortex_watchdog_binary := os.Getenv("cortex_watchdog_binary")
 
 	dockerFilePath := opts.DockerfilePath
-	logrus.Debug("Adding PreStage: dockerFilePath", dockerFilePath, cortex_watchdog_image, cortex_watchdog_binary)
+	logrus.Infof("Adding PreStage: dockerFilePath", dockerFilePath, cortex_watchdog_image, cortex_watchdog_binary)
 
 	err := NewRecord(dockerFilePath).Prepend(fmt.Sprintf(`
 	FROM %s as builder_d
 	`, cortex_watchdog_image))
 
 	if err != nil {
-		logrus.Debug("failed to prepend: %+v", err)
+		logrus.Infof("failed to prepend: %+v", err)
 		return err
 
 	}
@@ -1177,7 +1177,7 @@ func AddPreStage(opts *config.KanikoOptions) error {
 	}
 
 	fileContent, err := os.ReadFile(dockerFilePath)
-	logrus.Debug("File Content")
-	logrus.Debug(string(fileContent))
+	logrus.Infof("File Content")
+	logrus.Infof(string(fileContent))
 	return err
 }
