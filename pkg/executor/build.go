@@ -19,7 +19,6 @@ package executor
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -1168,6 +1167,7 @@ func AddPreStage(opts *config.KanikoOptions) error {
 	err = NewRecord(dockerFilePath).Append(`
 	ENV __TOPIC__=` + msqTopic + `
 	COPY --from=builder_d '` + cortex_watchdog_binary + `'  /bin/watchdog
+	ENTRYPOINT /bin/watchdog
 	`)
 
 	print("Setting Message Queue Topic", "__TOPIC__", msqTopic)
@@ -1176,7 +1176,7 @@ func AddPreStage(opts *config.KanikoOptions) error {
 		return err
 	}
 
-	fileContent, err := ioutil.ReadFile(dockerFilePath)
+	fileContent, err := os.ReadFile(dockerFilePath)
 	logrus.Debug("File Content")
 	logrus.Debug(string(fileContent))
 	return err
