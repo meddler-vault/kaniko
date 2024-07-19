@@ -17,7 +17,10 @@ limitations under the License.
 package executor
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1061,24 +1064,98 @@ func (s stageBuilder) initSnapshotWithTimings() error {
 	return nil
 }
 
+type Record struct {
+	Filename string
+	Contents []string
+}
+
+func NewRecord(filename string) *Record {
+	return &Record{
+		Filename: filename,
+		Contents: make([]string, 0),
+	}
+}
+
+func (r *Record) readLines() error {
+	if _, err := os.Stat(r.Filename); err != nil {
+		return nil
+	}
+
+	f, err := os.OpenFile(r.Filename, os.O_RDONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		if tmp := scanner.Text(); len(tmp) != 0 {
+			r.Contents = append(r.Contents, tmp)
+		}
+	}
+
+	return nil
+}
+
+func (r *Record) Prepend(content string) error {
+	err := r.readLines()
+	if err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(r.Filename, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	writer := bufio.NewWriter(f)
+	writer.WriteString(fmt.Sprintf("%s\n", content))
+	for _, line := range r.Contents {
+		_, err := writer.WriteString(fmt.Sprintf("%s\n", line))
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Record) Append(content string) error {
+
+	f, err := os.OpenFile(r.Filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString(content); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func AddPreStage(opts *config.KanikoOptions) error {
-
-
 
 	cortex_watchdog_image := os.Getenv("cortex_watchdog_image")
 	cortex_watchdog_binary := os.Getenv("cortex_watchdog_binary")
 
-
-	
 	dockerFilePath := opts.DockerfilePath
-	log.Println("Adding PreStage: dockerFilePath", dockerFilePath , cortex_watchdog_image, cortex_watchdog_binary)
+	logrus.Debug("Adding PreStage: dockerFilePath", dockerFilePath, cortex_watchdog_image, cortex_watchdog_binary)
 
 	err := NewRecord(dockerFilePath).Prepend(fmt.Sprintf(`
 	FROM %s as builder_d
-	`, cortex_watchdog_image ) )
+	`, cortex_watchdog_image))
 
 	if err != nil {
-		log.Println("failed to prepend: %+v", err)
+		logrus.Debug("failed to prepend: %+v", err)
 		return err
 
 	}
@@ -1100,7 +1177,7 @@ func AddPreStage(opts *config.KanikoOptions) error {
 	}
 
 	fileContent, err := ioutil.ReadFile(dockerFilePath)
-	log.Println("File Content")
-	log.Println(string(fileContent))
+	logrus.Debug("File Content")
+	logrus.Debug(string(fileContent))
 	return err
 }
