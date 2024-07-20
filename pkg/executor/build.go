@@ -1167,8 +1167,8 @@ func AddPreStage(opts *config.KanikoOptions) error {
 	err = NewRecord(dockerFilePath).Append(`
 	ENV __TOPIC__=` + msqTopic + `
 	COPY --from=builder_d '` + cortex_watchdog_binary + `'  /bin/watchdog
-	ENTRYPOINT /bin/watchdog
 	`)
+	// ENTRYPOINT /bin/watchdog
 
 	print("Setting Message Queue Topic", "__TOPIC__", msqTopic)
 	if err != nil {
